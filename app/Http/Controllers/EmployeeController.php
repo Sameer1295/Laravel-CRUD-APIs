@@ -18,7 +18,8 @@ class EmployeeController extends Controller
      */
     public function index()
     {
-        $data['employee'] = Employee::all();
+        $data = Employee::all();
+        // dd($data);
         return response()->json($data,200);
     }
 
@@ -29,7 +30,7 @@ class EmployeeController extends Controller
      */
     public function create()
     {
-        //
+        return "hello";
     }
 
     /**
@@ -40,9 +41,10 @@ class EmployeeController extends Controller
      */
     public function store(Request $request)
     {
+        // dd($request->all());
         $validator = Validator::make($request->all(),[
             'name' => 'required',
-            'photo_url' => 'required|image|mimes:jpeg,png,jpg,gif,svg',
+            'fileSource' => 'required|image|mimes:jpeg,png,jpg,gif,svg',
             'number' => 'required',
             'email' => 'required|email',
         ]);
@@ -57,10 +59,11 @@ class EmployeeController extends Controller
             return response()->json($data,400);
         }
         else{
+            
             //Storing img file
-            $file = $request->file('photo_url');
-            $imageName = time().$file->getClientOriginalName();
-            $path = $request->file('photo_url')->storeAs('avatars',$imageName);
+            $file = $request->file('fileSource');
+            $imageName = $file->getClientOriginalName();
+            $path = $request->file('fileSource')->storeAs('avatars',$imageName);
             $path = 'avatars/'.$imageName;
 
             $insert_data['name'] = $request->name;
@@ -79,11 +82,18 @@ class EmployeeController extends Controller
     public function show($id)
     {
         $data = Employee::where('id',$id)->get()->toArray();
-        $path = $data[0]['photo_url'];
         
-        $content = Storage::get($path);
-        $data['photo'] = base64_encode($content);
-
+        
+        if(count($data)>0){
+            $path = $data[0]['photo_url'];
+            $content = Storage::get($path);
+            
+            $filename = basename($path);
+            $data[0]['photo_url'] = $filename;
+            $data[0]['fileSource'] = base64_encode($content);
+            $data = $data[0];
+        }
+        // dd($data);
         return response()->json($data,200);
     }
 
@@ -98,7 +108,7 @@ class EmployeeController extends Controller
     {
         $validator = Validator::make($request->all(),[
             'name' => 'required',
-            'photo_url' => 'required|image|mimes:jpeg,png,jpg,gif,svg',
+            // 'fileSource' => 'required|image|mimes:jpeg,png,jpg,gif,svg',
             'number' => 'required',
             'email' => 'required|email',
         ]);
@@ -115,10 +125,10 @@ class EmployeeController extends Controller
         else{
             $Employee = Employee::findOrFail($id);
             // update image file in storagedisk and url in db table
-            $file = $request->file('photo_url');
-            $imageName = time().$file->getClientOriginalName();
-            $path = $request->file('photo_url')->storeAs('avatars',$imageName);
-            $path = 'avatars/'.$imageName;
+            // $file = $request->file('fileSource');
+            // $imageName = $file->getClientOriginalName();
+            // $path = $request->file('fileSource')->storeAs('avatars',$imageName);
+            $path = $Employee->photo_url;
 
             $update_data['name'] = $request->name;
             $update_data['photo_url'] = $path;
@@ -126,7 +136,7 @@ class EmployeeController extends Controller
             $update_data['email'] = $request->email;
             $data['message'] = 'Employee has been updated successfully!!';
             $data['status'] = 'success';
-            $data['data'] = Employee::create($update_data);
+            $data['data'] = $Employee->update($update_data);
             
             return response()->json($data,201);
         }
@@ -140,10 +150,43 @@ class EmployeeController extends Controller
      */
     public function destroy($id)
     {
+        if(is_null($id)){
+            return response()->json(['error' => 'Employee Not Found!!'],404);    
+        }
         $Employee = Employee::findOrFail($id);
         $Employee->delete();
-        $data['message'] = 'Employee has been delete successfully!!';
-        $data['status'] = 'success';
-        return response()->json($data,200);
+        return response()->json(['message' => 'Employee has been delete successfully!!'],204);
+    }
+
+    public function editImage(Request $request){
+        $validator = Validator::make($request->all(),[
+            'id' => 'required',
+            'fileSource' => 'required|image|mimes:jpeg,png,jpg,gif,svg',
+        ]);        
+        if ($validator->fails())
+        {
+            $data['message'] = 'Oops there are some errors with input values!!';
+            $data['status'] = 'failed';
+            $data['error'] = $validator->errors();
+            $data['values'] = $request->all();
+            
+            return response()->json($data,400);
+        }
+        else{
+            $id = $request->id;
+            $Employee = Employee::findOrFail($id);
+            // update image file in storagedisk and url in db table
+            $file = $request->file('fileSource');
+            $imageName = $file->getClientOriginalName();
+            $path = $request->file('fileSource')->storeAs('avatars',$imageName);
+            // $path = $Employee->photo_url;
+
+            $update_data['photo_url'] = $path;
+            $data['message'] = 'Employee Image has been updated successfully!!';
+            $data['status'] = 'success';
+            $data['data'] = $Employee->update($update_data);
+            
+            return response()->json($data,201);
+        }
     }
 }
